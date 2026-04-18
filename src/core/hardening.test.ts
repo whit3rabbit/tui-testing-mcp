@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Session, buildChildEnv, mergeEnv } from "./session.js";
+import { Session, buildChildEnv } from "./session.js";
 import type { PtyInstance } from "./pty.js";
 import { SpecialKeys, parseKeys } from "./keys.js";
 import { SecurityPolicyManager } from "../security/manager.js";
@@ -124,27 +124,20 @@ describe("Hardening Features", () => {
 
   describe("Environment Preservation", () => {
     it("should preserve PATH even when inherit is false", () => {
-      const originalEnv = process.env;
-      process.env = { ...originalEnv, PATH: "/test/path" };
-
-      try {
-        const env = mergeEnv(testSecurity(), {}, { inherit: false });
-        expect(env.PATH).toBe("/test/path");
-      } finally {
-        process.env = originalEnv;
-      }
+      // Pin platform so the Unix PATH shape is asserted regardless of the host OS.
+      const env = buildChildEnv(
+        { PATH: "/test/path" },
+        testSecurity(),
+        {},
+        { inherit: false },
+        "linux"
+      );
+      expect(env.PATH).toBe("/test/path");
     });
 
     it("should provide a fallback PATH if none is present in environment", () => {
-      const originalEnv = process.env;
-      process.env = {};
-
-      try {
-        const env = mergeEnv(testSecurity(), {}, { inherit: false });
-        expect(env.PATH).toBe("/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
-      } finally {
-        process.env = originalEnv;
-      }
+      const env = buildChildEnv({}, testSecurity(), {}, { inherit: false }, "linux");
+      expect(env.PATH).toBe("/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
     });
 
     it("builds a Windows-safe minimal env without inheriting Unix-only shell vars", () => {
@@ -192,47 +185,32 @@ describe("Hardening Features", () => {
     });
 
     it("defaults to a minimal env, excluding arbitrary parent vars", () => {
-      const originalEnv = process.env;
-      process.env = {
-        ...originalEnv,
+      const source: NodeJS.ProcessEnv = {
         PATH: "/test/path",
         HOME: "/home/test",
         MCP_PROBE: "should-not-leak",
         AWS_SECRET_ACCESS_KEY: "should-not-leak",
       };
 
-      try {
-        // No environment arg -> inherit defaults to false under the new policy
-        const env = mergeEnv(testSecurity());
-        expect(env.PATH).toBe("/test/path");
-        expect(env.HOME).toBe("/home/test");
-        expect(env.MCP_PROBE).toBeUndefined();
-        expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
-      } finally {
-        process.env = originalEnv;
-      }
+      // No environment arg -> inherit defaults to false under the new policy
+      const env = buildChildEnv(source, testSecurity(), undefined, undefined, "linux");
+      expect(env.PATH).toBe("/test/path");
+      expect(env.HOME).toBe("/home/test");
+      expect(env.MCP_PROBE).toBeUndefined();
+      expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
     });
 
     it("copies arbitrary parent vars when security.inheritEnv is true", () => {
-      const originalEnv = process.env;
-      process.env = { ...originalEnv, MCP_PROBE: "visible" };
-
-      try {
-        const security = new SecurityPolicyManager({
-          workspaceRoot: process.cwd(),
-          inheritEnv: true,
-        });
-        const env = mergeEnv(security);
-        expect(env.MCP_PROBE).toBe("visible");
-      } finally {
-        process.env = originalEnv;
-      }
+      const security = new SecurityPolicyManager({
+        workspaceRoot: process.cwd(),
+        inheritEnv: true,
+      });
+      const env = buildChildEnv({ MCP_PROBE: "visible" }, security, undefined, undefined, "linux");
+      expect(env.MCP_PROBE).toBe("visible");
     });
 
     it("drops secret patterns even when inheritEnv is true (defense-in-depth)", () => {
-      const originalEnv = process.env;
-      process.env = {
-        ...originalEnv,
+      const source: NodeJS.ProcessEnv = {
         PATH: "/test/path",
         HOME: "/home/test",
         MCP_PROBE: "visible",
@@ -243,54 +221,44 @@ describe("Hardening Features", () => {
         SECRET_KEY: "super-secret-value",
       };
 
-      try {
-        const security = new SecurityPolicyManager({
-          workspaceRoot: process.cwd(),
-          inheritEnv: true, // Explicitly enabled
-        });
-        const env = mergeEnv(security);
+      const security = new SecurityPolicyManager({
+        workspaceRoot: process.cwd(),
+        inheritEnv: true, // Explicitly enabled
+      });
+      const env = buildChildEnv(source, security, undefined, undefined, "linux");
 
-        // Safe vars should be present
-        expect(env.PATH).toBe("/test/path");
-        expect(env.HOME).toBe("/home/test");
-        expect(env.MCP_PROBE).toBe("visible");
+      // Safe vars should be present
+      expect(env.PATH).toBe("/test/path");
+      expect(env.HOME).toBe("/home/test");
+      expect(env.MCP_PROBE).toBe("visible");
 
-        // Secret patterns should be dropped even with inheritEnv: true
-        expect(env.AWS_ACCESS_KEY_ID).toBeUndefined();
-        expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
-        expect(env.GITHUB_TOKEN).toBeUndefined();
-        expect(env.DATABASE_URL).toBeUndefined();
-        expect(env.SECRET_KEY).toBeUndefined();
-      } finally {
-        process.env = originalEnv;
-      }
+      // Secret patterns should be dropped even with inheritEnv: true
+      expect(env.AWS_ACCESS_KEY_ID).toBeUndefined();
+      expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+      expect(env.GITHUB_TOKEN).toBeUndefined();
+      expect(env.DATABASE_URL).toBeUndefined();
+      expect(env.SECRET_KEY).toBeUndefined();
     });
 
     it("drops execution-modifying patterns even when inheritEnv is true (defense-in-depth)", () => {
-      const originalEnv = process.env;
-      process.env = {
-        ...originalEnv,
+      const source: NodeJS.ProcessEnv = {
         NODE_OPTIONS: "--require=evil",
         PYTHONSTARTUP: "evil.py",
         LD_PRELOAD: "evil.so",
         BASH_ENV: "evil.sh",
       };
 
-      try {
-        const security = new SecurityPolicyManager({
-          workspaceRoot: process.cwd(),
-          inheritEnv: true, // Explicitly enabled
-        });
-        const env = mergeEnv(security);
+      const security = new SecurityPolicyManager({
+        workspaceRoot: process.cwd(),
+        inheritEnv: true, // Explicitly enabled
+      });
+      const env = buildChildEnv(source, security, undefined, undefined, "linux");
 
-        // Execution modifiers should be dropped even with inheritEnv: true
-        expect(env.NODE_OPTIONS).toBeUndefined();
-        expect(env.PYTHONSTARTUP).toBeUndefined();
-        expect(env.LD_PRELOAD).toBeUndefined();
-        expect(env.BASH_ENV).toBeUndefined();
-      } finally {
-        process.env = originalEnv;
-      }
+      // Execution modifiers should be dropped even with inheritEnv: true
+      expect(env.NODE_OPTIONS).toBeUndefined();
+      expect(env.PYTHONSTARTUP).toBeUndefined();
+      expect(env.LD_PRELOAD).toBeUndefined();
+      expect(env.BASH_ENV).toBeUndefined();
     });
   });
 

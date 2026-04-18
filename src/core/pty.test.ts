@@ -13,7 +13,9 @@ afterEach(() => {
 });
 
 describe("ensureNodePtyHelperPermissions", () => {
-  it("restores execute bits on spawn-helper binaries", () => {
+  // node-pty on Windows uses ConPTY and does not ship a spawn-helper binary,
+  // so the repair path returns [] unconditionally (see src/core/pty.ts).
+  it.skipIf(process.platform === "win32")("restores execute bits on spawn-helper binaries", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "tui-pty-"));
     tempDirs.push(root);
 

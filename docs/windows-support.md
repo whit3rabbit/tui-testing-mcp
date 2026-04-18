@@ -44,6 +44,19 @@ These environments remain unsupported in this milestone:
 - workspace checks and path normalization account for drive letters, mixed separators, and case-insensitive Windows path comparisons
 - command policy resolution now understands Windows executable suffixes through `PATHEXT`
 
+## Known upstream issues
+
+- **Node 22 + node-pty ConPTY crash.** On `windows-latest` with Node 22 and
+  `node-pty@^1.1.0`, spawning a Node.js subprocess through the PTY can trigger
+  an internal `ncrypto::CSPRNG` assertion inside the child's startup, killing
+  the PTY before any output reaches the buffer. The Windows CI job is pinned
+  to Node 20 (see `.github/workflows/ci.yml`) until the upstream interaction is
+  resolved. macOS and Linux continue to run Node 22.
+- **POSIX permission bits are not enforced by NTFS.** Tests that assert
+  `stat.mode & 0o777 === 0o600` on persisted artifacts run only on Unix hosts;
+  the equivalent check is skipped on Windows because `fs.writeFileSync` cannot
+  set POSIX mode bits on NTFS.
+
 ## Validation
 
 The release-significant validation stack now runs on `windows-latest` in CI:
