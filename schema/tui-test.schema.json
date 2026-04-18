@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TUI Test MCP Configuration",
+  "type": "object",
+  "properties": {
+    "workspaceRoot": {
+      "type": "string",
+      "description": "Root directory for all target operations"
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowedCommands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Rules that include a path separator match resolved absolute paths; bare names match the basename of the resolved command"
+        },
+        "deniedCommands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Same match semantics as allowedCommands. Deny wins over allow."
+        },
+        "allowShell": {
+          "type": "boolean",
+          "description": "Permits shell-backed launches to resolve a shell binary. Does NOT by itself allow inline -c evaluation."
+        },
+        "allowShellEval": {
+          "type": "boolean",
+          "description": "Permits shell: true launches to forward arbitrary command strings through the shell's -c flag. Default false because -c bypasses allowedCommands."
+        },
+        "envAllowlist": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "inheritEnv": {
+          "type": "boolean",
+          "description": "When true, child spawns inherit the full parent process env (pre-2.0 default). When unset or false, only a minimal safe allowlist is copied unless a session opts in."
+        },
+        "artifactRedactions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Regex patterns (global flag implied) appended to the built-in artifact redactors. Invalid patterns are ignored."
+        },
+        "artifactRetention": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxAgeHours": { "type": "number", "exclusiveMinimum": 0 },
+            "maxBundles": { "type": "integer", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "microsoftTuiTest": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Defaults for the optional Microsoft TUI Test bridge tool",
+      "properties": {
+        "configFile": { "type": "string" },
+        "cwd": { "type": "string" },
+        "defaultTimeoutMs": { "type": "integer", "exclusiveMinimum": 0 }
+      }
+    },
+    "shell": {
+      "type": "object",
+      "description": "Project-level defaults for shell-backed launches",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Default shell adapter id (e.g. sh, bash, zsh, fish)"
+        },
+        "login": {
+          "type": "boolean",
+          "description": "Whether shell-backed launches default to login mode"
+        }
+      }
+    },
+    "targets": {
+      "type": "object",
+      "description": "Named targets for language-agnostic launching",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "runner": {
+            "type": "string",
+            "enum": ["cargo", "go", "python", "node", "binary"],
+            "description": "Runner type for this target"
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory for target operations"
+          },
+          "env": {
+            "type": "object",
+            "description": "Session-local environment overrides for this target",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "isolation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "inherit": {
+                    "type": "boolean"
+                  },
+                  "allow": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "set": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "workingDirectory": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": ["temp", "copy"]
+                  },
+                  "copyFrom": {
+                    "type": "string"
+                  },
+                  "retain": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          "build": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Build command arguments"
+          },
+          "launch": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Launch command arguments"
+          },
+          "test": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Test command arguments"
+          }
+        },
+        "required": ["runner", "launch"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["workspaceRoot"],
+  "additionalProperties": false
+}

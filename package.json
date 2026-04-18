@@ -1,0 +1,86 @@
+{
+  "name": "tui-testing-mcp",
+  "version": "0.2.0",
+  "description": "MCP server for testing terminal UIs and interactive CLIs across Rust, Go, Python, Node, and raw binaries",
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "author": "whit3rabbit",
+  "homepage": "https://github.com/whit3rabbit/tui-testing-mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/whit3rabbit/tui-testing-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/whit3rabbit/tui-testing-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "tui",
+    "terminal",
+    "pty",
+    "ratatui",
+    "bubbletea",
+    "testing",
+    "cli",
+    "automation"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "bin": {
+    "tui-test-mcp": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    },
+    "./security": {
+      "import": "./dist/security/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "schema/tui-test.schema.json"
+  ],
+  "scripts": {
+    "clean": "rimraf dist .turbo coverage",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "start:stdio": "node dist/index.js --transport stdio",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:mcp": "npm run test:mcp:raw && npm run test:mcp:sdk",
+    "test:mcp:raw": "npm run build && vitest run tests/mcp/raw-protocol.test.ts",
+    "test:mcp:sdk": "npm run build && vitest run tests/mcp/sdk-interop.test.ts",
+    "test:pty": "vitest run src/core/*.integration.test.ts",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run clean && npm run build && npm run typecheck && npm run lint && npm run test && npm run test:mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@xterm/headless": "^6.0.0",
+    "node-pty": "^1.1.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0",
+    "rimraf": "^6.1.3",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.58.2",
+    "vitest": "^4.1.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

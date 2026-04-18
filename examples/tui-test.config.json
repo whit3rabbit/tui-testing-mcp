@@ -1,0 +1,21 @@
+{
+  "workspaceRoot": "..",
+  "targets": {
+    "counter": {
+      "runner": "node",
+      "cwd": "./examples",
+      "launch": ["node", "counter.js"]
+    },
+    "counter-isolated": {
+      "runner": "node",
+      "cwd": "./examples",
+      "launch": ["node", "counter.js"],
+      "isolation": {
+        "workingDirectory": {
+          "mode": "copy",
+          "copyFrom": "./examples"
+        }
+      }
+    }
+  }
+}
