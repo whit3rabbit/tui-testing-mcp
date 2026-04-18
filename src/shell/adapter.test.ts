@@ -41,8 +41,10 @@ describe("resolveShell", () => {
     expect(result.adapter.id).toBe("bash");
   });
 
-  it("falls through explicit → defaults → env → sh", () => {
-    expect(resolveShell(undefined, undefined, undefined).adapter.id).toBe("sh");
+  it("falls through explicit → defaults → env → platform fallback", () => {
+    // Platform fallback is cmd on win32 and sh elsewhere (see DEFAULT_FALLBACK_SHELL in ./index.ts).
+    const fallback = process.platform === "win32" ? "cmd" : "sh";
+    expect(resolveShell(undefined, undefined, undefined).adapter.id).toBe(fallback);
     expect(resolveShell(undefined, "/bin/zsh", undefined).adapter.id).toBe("zsh");
     expect(resolveShell(undefined, "/bin/zsh", { name: "bash" }).adapter.id).toBe("bash");
   });

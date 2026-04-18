@@ -58,6 +58,11 @@ Examples of target apps:
   - `trace.json` and `metadata.json` are written incrementally instead of one large `JSON.stringify(..., null, 2)` string
   - redaction helpers clone lazily, so unchanged strings/objects/arrays should keep their original references
 - Be careful when touching real-PTY integration tests. In this repo, full-suite runs can intermittently fail with blank buffer reads even when the affected file passes in isolation. If a PTY integration fails once under `npm test`, rerun the specific file before assuming your code caused a deterministic regression.
+- Three real-PTY integration tests are skipped on Windows via `it.skipIf(process.platform === "win32")` because of ConPTY / node-pty issues documented in `docs/windows-support.md` "Known upstream issues". Do not remove those guards without confirming the upstream fix has landed:
+  - `src/core/engine.integration.test.ts` — *reconciles shrink and grow redraws …* (ConPTY drops initial render)
+  - `src/core/engine.integration.test.ts` — *cleans isolated working directories on close …* (rmdir races with node-pty handle release, EBUSY)
+  - `src/core/wait.integration.test.ts` — *drives a redraw-heavy TUI …* (ConPTY drops initial render)
+- The Windows CI job is pinned to Node 20 while macOS and Linux run Node 22, because Node 22 + `node-pty@^1.1.0` + ConPTY assert inside `ncrypto::CSPRNG` when the PTY child is a Node.js process. See `.github/workflows/ci.yml`.
 
 ## Project structure
 

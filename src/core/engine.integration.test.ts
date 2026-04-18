@@ -181,7 +181,10 @@ describe("engine semantics (real PTY)", () => {
     10000
   );
 
-  it(
+  // Skipped on Windows: ConPTY intermittently drops the initial buffer render,
+  // leaving an all-newline screen. See docs/windows-support.md "Known upstream
+  // issues".
+  it.skipIf(process.platform === "win32")(
     "reconciles shrink and grow redraws without leaving stale active-screen layout behind",
     async () => {
       const manager = newManager();
@@ -572,7 +575,11 @@ describe("engine semantics (real PTY)", () => {
     15000
   );
 
-  it(
+  // Skipped on Windows: rmdir of the isolated working directory races with
+  // node-pty/ConPTY releasing its handle on the child CWD, producing EBUSY
+  // even with Node's fs.rmSync maxRetries/retryDelay backoff. See
+  // docs/windows-support.md "Known upstream issues".
+  it.skipIf(process.platform === "win32")(
     "cleans isolated working directories on close and retains them only when requested",
     async () => {
       const manager = newManager();

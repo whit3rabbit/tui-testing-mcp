@@ -1,0 +1,12 @@
+# Normalize line endings on check-in; keep working tree LF on all platforms.
+# Prevents Windows git from rewriting template literals, fixtures, or JSON
+# goldens to CRLF during checkout, which would shift byte counts in tests
+# that compare rendered artifacts across OSes.
+* text=auto eol=lf
+
+# Preserve binary fixtures untouched.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary

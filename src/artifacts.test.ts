@@ -113,15 +113,19 @@ describe("persistArtifacts", () => {
 
     const metadata = persistArtifacts(bundle, security);
 
-    for (const file of Object.values(metadata.files)) {
-      const stat = fs.statSync(file);
-      expect(stat.mode & 0o777).toBe(0o600);
-    }
+    // Windows NTFS does not honor POSIX mode bits on writeFileSync/mkdirSync,
+    // so restrict the 0o600 / 0o700-subset assertions to Unix-like hosts.
+    if (process.platform !== "win32") {
+      for (const file of Object.values(metadata.files)) {
+        const stat = fs.statSync(file);
+        expect(stat.mode & 0o777).toBe(0o600);
+      }
 
-    const dirStat = fs.statSync(metadata.artifactDir);
-    // Directory must be owner-only (mkdir mode interacts with umask, so
-    // allow any subset of 0o700 that excludes group/other access).
-    expect(dirStat.mode & 0o077).toBe(0);
+      const dirStat = fs.statSync(metadata.artifactDir);
+      // Directory must be owner-only (mkdir mode interacts with umask, so
+      // allow any subset of 0o700 that excludes group/other access).
+      expect(dirStat.mode & 0o077).toBe(0);
+    }
 
     const transcript = fs.readFileSync(metadata.files.transcript, "utf-8");
     expect(transcript).not.toMatch(/sk-TESTTOKEN/);
@@ -192,7 +196,7 @@ describe("persistArtifacts", () => {
     expect(html).not.toContain("x".repeat(64));
   });
 
-  it("captures and persists a live session without storing raw typed input in trace output", () => {
+  it("captures and persists a live session without storing raw typed input in trace output", async () => {
     const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tui-artifact-live-"));
     tempDirs.push(workspaceRoot);
     const security = new SecurityPolicyManager({ workspaceRoot });
@@ -211,7 +215,7 @@ describe("persistArtifacts", () => {
     pty.emit("data", "hello sk-TESTTOKENAAAAAAAAAAAAAAAAAAAAAAAA world\n");
     session.write("typed-secret\n");
 
-    const metadata = captureAndPersistArtifacts(session, security, Date.now());
+    const metadata = await captureAndPersistArtifacts(session, security, Date.now());
 
     const trace = fs.readFileSync(metadata.files.trace, "utf-8");
     const transcript = fs.readFileSync(metadata.files.transcript, "utf-8");

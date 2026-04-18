@@ -361,7 +361,16 @@ export function cleanupIsolation(isolation?: SessionIsolationState): void {
   }
 
   try {
-    fs.rmSync(workingDirectory.path, { recursive: true, force: true });
+    // maxRetries/retryDelay handle Windows EBUSY/EPERM/ENOTEMPTY when the
+    // child's handle to the isolated workdir is still releasing after the PTY
+    // exits. Node's built-in linear backoff retries up to 10 * 100ms = ~5.5s.
+    // No-op on Unix, where the first rmSync succeeds.
+    fs.rmSync(workingDirectory.path, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
     workingDirectory.cleanup = "cleaned";
     workingDirectory.cleanupError = undefined;
   } catch (error) {
