@@ -25,7 +25,10 @@ describe("wait semantics (real PTY)", () => {
     return m;
   }
 
-  it(
+  // Skipped on Windows: ConPTY intermittently drops the counter's initial
+  // render, leaving an all-newline screen. See docs/windows-support.md
+  // "Known upstream issues".
+  it.skipIf(process.platform === "win32")(
     "drives a redraw-heavy TUI with screen-change and stability waits instead of fixed sleeps",
     async () => {
       const manager = newManager();
