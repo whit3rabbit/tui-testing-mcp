@@ -424,7 +424,7 @@ launch_tui(
 | `send_keys(keys, delay?)` | Send literal input to the PTY | Supports escapes like `\n`, Ctrl syntax like `^c`, and named keys like `up`, `down`, `left`, `right` |
 | `send_ctrl(key)` | Send a single Ctrl combo | Pass lowercase letters like `c`, `d`, `z` |
 | `capture_screen(includeAnsi?, useBuffer?)` | Return current output | `stream` returns transcript, `buffer` returns current emulated screen |
-| `expect_text(pattern, timeout?, patternMode?)` | Wait until text or regex appears | Timeout errors include a useful excerpt |
+| `expect_text(pattern, timeout?, patternMode?)` | Wait until text or regex appears | Timeout errors include a useful excerpt, regex mode rejects unsafe repeated-group shapes like `(a+)+` |
 | `wait_for_screen_change(timeout?, pollIntervalMs?)` | Wait until the screen changes | Best for redraw-heavy flows where you only need forward progress |
 | `wait_for_screen_stability(timeout?, stableForMs?, pollIntervalMs?)` | Wait until the screen stops changing | Prefer this over fixed sleeps before assertions |
 | `assert_contains(text)` | Assert text is present right now | Does not wait |

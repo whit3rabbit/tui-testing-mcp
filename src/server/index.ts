@@ -145,29 +145,45 @@ export async function expectTextInSession(
   const read = session.buffer
     ? () => session.buffer!.getScreenText()
     : () => session.capture(false, false);
-  const result = await waitForOutput(read, pattern, {
-    timeoutMs,
-    mode,
-    patternMode,
-    isStopRequested: () => session.status !== "active",
-  });
+  try {
+    const result = await waitForOutput(read, pattern, {
+      timeoutMs,
+      mode,
+      patternMode,
+      isStopRequested: () => session.status !== "active",
+    });
 
-  session.recordTraceEvent("wait", {
-    pattern,
-    patternMode,
-    timeoutMs,
-    mode,
-    success: result.success,
-    message: result.message,
-    found: result.found,
-    excerpt: result.excerpt,
-    elapsedMs: result.elapsedMs,
-  });
+    session.recordTraceEvent("wait", {
+      pattern,
+      patternMode,
+      timeoutMs,
+      mode,
+      success: result.success,
+      message: result.message,
+      found: result.found,
+      excerpt: result.excerpt,
+      elapsedMs: result.elapsedMs,
+    });
 
-  return {
-    text: result.message,
-    isError: !result.success,
-  };
+    return {
+      text: result.message,
+      isError: !result.success,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    session.recordTraceEvent("wait", {
+      pattern,
+      patternMode,
+      timeoutMs,
+      mode,
+      success: false,
+      message,
+    });
+    return {
+      text: `Error: ${message}`,
+      isError: true,
+    };
+  }
 }
 
 async function waitForScreenChangeInSession(
@@ -457,7 +473,7 @@ export class TuiTestServer {
 
     server.tool(
       "expect_text",
-      "Wait until `pattern` appears on the screen, or fail after `timeout` seconds (max 120). Use this when the task says to wait for a prompt, menu item, success message, error text, or other visible confirmation that the app reached the next state. Set `patternMode: \"regex\"` for regex matching; the default is literal text. Buffer mode strips ANSI, so do not embed escape sequences like `\\x1b[31m` in the pattern. On timeout the error includes a screen excerpt.",
+      "Wait until `pattern` appears on the screen, or fail after `timeout` seconds (max 120). Use this when the task says to wait for a prompt, menu item, success message, error text, or other visible confirmation that the app reached the next state. Set `patternMode: \"regex\"` for regex matching; the default is literal text. Regex mode accepts simple JavaScript regexes but rejects unsafe repeated-group shapes like `(a+)+` or `(a|aa)+`. Buffer mode strips ANSI, so do not embed escape sequences like `\\x1b[31m` in the pattern. On timeout the error includes a screen excerpt.",
       {
         // patternMode toggles literal vs regex matching so callers don't
         // need a separate tool for regex waits.

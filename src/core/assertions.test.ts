@@ -100,6 +100,45 @@ describe("waitForOutput", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("allows simple repeated groups that do not nest repetition", async () => {
+    const result = await waitForOutput(() => "zzababc", "(ab)+c", {
+      timeoutMs: 100,
+      pollIntervalMs: 10,
+      patternMode: "regex",
+    });
+    expect(result.success).toBe(true);
+    expect(result.found).toBe("ababc");
+  });
+
+  it("rejects nested repeated regex groups before matching", async () => {
+    await expect(
+      waitForOutput(() => "aaaaaaaaaaaaaaaa", "(a+)+b", {
+        timeoutMs: 100,
+        pollIntervalMs: 10,
+        patternMode: "regex",
+      })
+    ).rejects.toThrow(/Unsafe regex rejected/);
+  });
+
+  it("rejects repeated alternation groups before matching", async () => {
+    await expect(
+      waitForOutput(() => "aaaaaaaaaaaaaaaa", "(a|aa)+b", {
+        timeoutMs: 100,
+        pollIntervalMs: 10,
+        patternMode: "regex",
+      })
+    ).rejects.toThrow(/Unsafe regex rejected/);
+  });
+
+  it("rejects unsafe RegExp objects before matching", async () => {
+    await expect(
+      waitForOutput(() => "aaaaaaaaaaaaaaaa", /(a+)+b/, {
+        timeoutMs: 100,
+        pollIntervalMs: 10,
+      })
+    ).rejects.toThrow(/Unsafe regex rejected/);
+  });
 });
 
 describe("waitForScreenChange", () => {

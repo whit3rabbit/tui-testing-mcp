@@ -57,6 +57,8 @@ export interface WaitForStabilityOptions {
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_POLL_MS = 100;
 const DEFAULT_STABLE_FOR_MS = 500;
+const UNSAFE_REGEX_MESSAGE_SUFFIX =
+  "Use a simpler regex, switch to literal text, or split the wait into multiple checks.";
 
 /**
  * Assert that text appears in the terminal buffer.
@@ -310,12 +312,171 @@ export async function waitForScreenStability(
 
 function compilePattern(pattern: string | RegExp, patternMode: PatternMode): RegExp {
   if (pattern instanceof RegExp) {
+    assertRegexIsSafe(pattern.source);
     return pattern;
   }
   if (patternMode === "regex") {
+    assertRegexIsSafe(pattern);
     return new RegExp(pattern, "m");
   }
   return new RegExp(escapeRegex(pattern), "m");
+}
+
+function assertRegexIsSafe(source: string): void {
+  const issue = getUnsafeRegexReason(source);
+  if (!issue) {
+    return;
+  }
+
+  throw new Error(`Unsafe regex rejected: ${issue}. ${UNSAFE_REGEX_MESSAGE_SUFFIX}`);
+}
+
+interface RegexGroupState {
+  hasUnboundedRepetition: boolean;
+  hasAlternation: boolean;
+}
+
+function getUnsafeRegexReason(source: string): string | null {
+  const groups: RegexGroupState[] = [];
+  let index = 0;
+
+  while (index < source.length) {
+    const char = source[index];
+
+    if (char === "\\") {
+      const tokenEnd = Math.min(index + 2, source.length);
+      const quantifier = readUnboundedQuantifier(source, tokenEnd);
+      if (quantifier.present) {
+        markGroupUnboundedRepetition(groups);
+      }
+      index = quantifier.nextIndex;
+      continue;
+    }
+
+    if (char === "[") {
+      const tokenEnd = consumeCharacterClass(source, index);
+      const quantifier = readUnboundedQuantifier(source, tokenEnd);
+      if (quantifier.present) {
+        markGroupUnboundedRepetition(groups);
+      }
+      index = quantifier.nextIndex;
+      continue;
+    }
+
+    if (char === "(") {
+      groups.push({ hasUnboundedRepetition: false, hasAlternation: false });
+      index += 1;
+      continue;
+    }
+
+    if (char === ")") {
+      const group = groups.pop();
+      if (!group) {
+        index += 1;
+        continue;
+      }
+
+      const quantifier = readUnboundedQuantifier(source, index + 1);
+      if (quantifier.present) {
+        if (group.hasUnboundedRepetition) {
+          return "nested unbounded repetition inside a repeated group";
+        }
+        if (group.hasAlternation) {
+          return "alternation inside a repeated group";
+        }
+        markGroupUnboundedRepetition(groups);
+      }
+
+      propagateGroupState(groups, group);
+      index = quantifier.nextIndex;
+      continue;
+    }
+
+    if (char === "|") {
+      const current = groups[groups.length - 1];
+      if (current) {
+        current.hasAlternation = true;
+      }
+      index += 1;
+      continue;
+    }
+
+    const quantifier = readUnboundedQuantifier(source, index + 1);
+    if (quantifier.present) {
+      markGroupUnboundedRepetition(groups);
+    }
+    index = quantifier.nextIndex;
+  }
+
+  return null;
+}
+
+function propagateGroupState(groups: RegexGroupState[], group: RegexGroupState): void {
+  const parent = groups[groups.length - 1];
+  if (!parent) {
+    return;
+  }
+
+  if (group.hasUnboundedRepetition) {
+    parent.hasUnboundedRepetition = true;
+  }
+  if (group.hasAlternation) {
+    parent.hasAlternation = true;
+  }
+}
+
+function markGroupUnboundedRepetition(groups: RegexGroupState[]): void {
+  const current = groups[groups.length - 1];
+  if (current) {
+    current.hasUnboundedRepetition = true;
+  }
+}
+
+function consumeCharacterClass(source: string, start: number): number {
+  let index = start + 1;
+  while (index < source.length) {
+    if (source[index] === "\\") {
+      index += 2;
+      continue;
+    }
+    if (source[index] === "]") {
+      return index + 1;
+    }
+    index += 1;
+  }
+  return source.length;
+}
+
+function readUnboundedQuantifier(
+  source: string,
+  index: number
+): { present: boolean; nextIndex: number } {
+  if (index >= source.length) {
+    return { present: false, nextIndex: index };
+  }
+
+  const char = source[index];
+  if (char === "*" || char === "+") {
+    const lazy = source[index + 1] === "?" ? 1 : 0;
+    return { present: true, nextIndex: index + 1 + lazy };
+  }
+
+  if (char !== "{") {
+    return { present: false, nextIndex: index };
+  }
+
+  const end = source.indexOf("}", index + 1);
+  if (end === -1) {
+    return { present: false, nextIndex: source.length };
+  }
+
+  const body = source.slice(index + 1, end);
+  if (!/^\d+,\d*$/.test(body) || !body.endsWith(",")) {
+    return { present: false, nextIndex: end + 1 };
+  }
+
+  const lazy = source[end + 1] === "?" ? 1 : 0;
+  return { present: true, nextIndex: end + 1 + lazy };
 }
 
 function describePattern(pattern: string | RegExp, patternMode: PatternMode): string {
