@@ -4,7 +4,7 @@ Like Playwright, but for terminal UIs.
 
 `tui-testing-mcp` is an MCP server for driving and checking interactive terminal programs over a PTY. It supports simple sequential CLI flows in `stream` mode and full-screen redraw-heavy TUIs in `buffer` mode.
 
-Scope in one sentence: stdio MCP server for terminal and TUI testing, Unix-focused (macOS and Linux), native Windows unsupported, guarded execution (not sandboxing), and official MCP conformance remains advisory.
+Scope in one sentence: stdio MCP server for terminal and TUI testing, supported on macOS and Linux and experimentally on native Windows (cmd-first), guarded execution (not sandboxing), and official MCP conformance remains advisory.
 
 This project is a TypeScript and Node.js port of the original Python MCP TUI test server, expanded toward language-agnostic target execution for Rust, Go, Python, Node, and raw binaries. It keeps the same PTY-plus-buffer testing model, but the product here is an MCP server, not a standalone test framework.
 
@@ -57,7 +57,7 @@ These are intentionally out of scope for the first release. If you need any of t
 ## Requirements
 
 - Node.js 20.11 or newer
-- macOS or Linux
+- macOS, Linux, or native Windows 10 1809+ with ConPTY
 - `node-pty` must build successfully for your local Node version
 
 ## Platform Support
@@ -66,11 +66,11 @@ These are intentionally out of scope for the first release. If you need any of t
 | --------- | ------------------ | ---------------------------------------------------- |
 | macOS     | Supported          | Covered by CI (`macos-latest`, Node 22).             |
 | Linux     | Supported          | Covered by CI (`ubuntu-latest`, Node 22).            |
-| Windows   | Unsupported        | No Windows CI; `cmd.exe` adapter ships but is unvalidated. |
-| WSL2      | Not supported yet  | Not evaluated or tested; may work, not guaranteed.   |
+| Windows   | Experimental       | Covered by CI (`windows-latest`, Node 22). Native Windows only, direct `command` + `args` preferred, `shell: true` validated for `cmd`. |
+| WSL2      | Not supported yet  | Not evaluated or documented as a supported environment. |
 | Transport | stdio only         | No HTTP or SSE transport. See [docs/TESTS.md](docs/TESTS.md). |
 
-Windows remains unsupported because the repo does not yet validate the `cmd.exe` shell adapter against a real Windows runner, does not run Windows CI, and has not validated PTY snapshot stability on Windows. See [docs/windows-support.md](docs/windows-support.md) for the full evaluation, blockers, and prerequisites before this should be reconsidered.
+Experimental Windows support is intentionally narrow: native Windows only, `cmd` is the only supported shell-backed launch path, and direct `command` plus `args` remains the preferred cross-platform launch style. See [docs/windows-support.md](docs/windows-support.md) for the current support contract and limitations.
 
 Official MCP conformance is advisory for this project. The required validation stack is the three lanes documented in [docs/TESTS.md](docs/TESTS.md): raw stdio, SDK interoperability, and PTY behavior.
 
@@ -354,7 +354,9 @@ close_session()
 
 This is the main entrypoint. Prefer exact `command` plus `args`. Use `target`
 when the workspace has named launch targets. Use `shell: true` only when you
-intentionally want shell parsing and your security policy allows it.
+intentionally want shell parsing and your security policy allows it. Shell mode
+routes through the resolved shell adapter, for example `bash -lc` on Unix-like
+systems and `cmd /c` on supported Windows.
 
 Use this first for requests like:
 
@@ -369,7 +371,7 @@ Use this first for requests like:
 | `command` | `string`               | Executable to run. Use with `args`.                                     |
 | `args`    | `string[]`             | Exact argv entries. Quotes are not reparsed.                            |
 | `target`  | `string`               | Named target from config. Mutually exclusive with `command`.            |
-| `shell`   | `boolean`              | Run `command` through the user shell. Disabled unless policy allows it. |
+| `shell`   | `boolean`              | Run `command` through the resolved shell adapter. Disabled unless policy allows it. |
 | `cwd`     | `string`               | Working directory. Must stay inside `workspaceRoot`.                    |
 | `env`     | `Record<string,string>`| Explicit environment overrides for this session only.                   |
 | `isolation` | `object`             | Session-scoped environment shaping and temporary working-directory prep. |

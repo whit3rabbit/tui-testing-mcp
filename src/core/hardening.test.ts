@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Session, mergeEnv } from "./session.js";
+import { Session, buildChildEnv, mergeEnv } from "./session.js";
 import type { PtyInstance } from "./pty.js";
 import { SpecialKeys, parseKeys } from "./keys.js";
 import { SecurityPolicyManager } from "../security/manager.js";
@@ -145,6 +145,50 @@ describe("Hardening Features", () => {
       } finally {
         process.env = originalEnv;
       }
+    });
+
+    it("builds a Windows-safe minimal env without inheriting Unix-only shell vars", () => {
+      const env = buildChildEnv(
+        {
+          Path: "C:\\Tools;C:\\Windows\\System32",
+          SystemRoot: "C:\\Windows",
+          ComSpec: "C:\\Windows\\System32\\cmd.exe",
+          PATHEXT: ".COM;.EXE;.BAT;.CMD",
+          USERPROFILE: "C:\\Users\\tester",
+          HOMEDRIVE: "C:",
+          HOMEPATH: "\\Users\\tester",
+          TEMP: "C:\\Temp",
+          TMP: "C:\\Temp",
+          SHELL: "/bin/bash",
+        },
+        testSecurity(),
+        {},
+        { inherit: false },
+        "win32"
+      );
+
+      expect(env.Path).toBe("C:\\Tools;C:\\Windows\\System32");
+      expect(env.PATH).toBeUndefined();
+      expect(env.ComSpec).toBe("C:\\Windows\\System32\\cmd.exe");
+      expect(env.SystemRoot).toBe("C:\\Windows");
+      expect(env.PATHEXT).toBe(".COM;.EXE;.BAT;.CMD");
+      expect(env.USERPROFILE).toBe("C:\\Users\\tester");
+      expect(env.SHELL).toBeUndefined();
+    });
+
+    it("provides a Windows fallback Path when inheritance is disabled", () => {
+      const env = buildChildEnv(
+        { SystemRoot: "C:\\Windows" },
+        testSecurity(),
+        {},
+        { inherit: false },
+        "win32"
+      );
+
+      expect(env.Path).toBe(
+        "C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\Wbem"
+      );
+      expect(env.PATH).toBeUndefined();
     });
 
     it("defaults to a minimal env, excluding arbitrary parent vars", () => {

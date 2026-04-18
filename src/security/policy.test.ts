@@ -3,6 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  commandPathCandidates,
   isArgvSafe,
   isCommandAllowed,
   isShellAllowed,
@@ -95,6 +96,45 @@ describe("isCommandAllowed", () => {
   it("returns true when no policy is configured", () => {
     expect(isCommandAllowed({ workspaceRoot }, "/bin/sh")).toBe(true);
   });
+
+  it("matches bare Windows command rules case-insensitively and without requiring .exe", () => {
+    expect(
+      isCommandAllowed(
+        { workspaceRoot, deniedCommands: ["node"] },
+        "C:\\Tools\\Node.EXE",
+        { PATHEXT: ".COM;.EXE;.BAT;.CMD" }
+      )
+    ).toBe(false);
+    expect(
+      isCommandAllowed(
+        { workspaceRoot, deniedCommands: ["npm.cmd"] },
+        "C:\\Tools\\NPM.CMD",
+        { PATHEXT: ".COM;.EXE;.BAT;.CMD" }
+      )
+    ).toBe(false);
+  });
+
+  it("treats absolute Windows path rules as exact matches even across case differences", () => {
+    expect(
+      isCommandAllowed(
+        { workspaceRoot, deniedCommands: ["C:\\TOOLS\\Node.EXE"] },
+        "c:\\tools\\node.exe",
+        { PATHEXT: ".COM;.EXE;.BAT;.CMD" }
+      )
+    ).toBe(false);
+  });
+});
+
+describe("commandPathCandidates", () => {
+  it("expands bare Windows commands through PATHEXT", () => {
+    expect(
+      commandPathCandidates("node", { PATHEXT: ".EXE;.CMD" }, "win32")
+    ).toEqual(["node", "node.EXE", "node.CMD"]);
+  });
+
+  it("keeps explicit Windows executable names unchanged", () => {
+    expect(commandPathCandidates("npm.cmd", undefined, "win32")).toEqual(["npm.cmd"]);
+  });
 });
 
 describe("shell gating predicates", () => {
@@ -164,6 +204,12 @@ describe("isArgvSafe", () => {
     expect(isArgvSafe(allowlistPolicy, "bash", ["-c", "ls"])).toBe(false);
     expect(isArgvSafe(allowlistPolicy, "bash", ["-cls"])).toBe(false);
     expect(isArgvSafe(allowlistPolicy, "sh", ["-c", "ls"])).toBe(false);
+    // On Debian/Ubuntu `/bin/sh` symlinks to `dash`, so the realpath-based
+    // lookup resolves to `dash`. That must not leave shell -c unguarded.
+    expect(isArgvSafe(allowlistPolicy, "dash", ["-c", "ls"])).toBe(false);
+    // If the input resolves to a basename we don't recognize, the check
+    // still blocks based on the input-basename lookup alone.
+    expect(isArgvSafe(allowlistPolicy, "/nonexistent/path/to/sh", ["-c", "ls"])).toBe(false);
   });
 
   it("does not let dangerous flags hide behind --", () => {
@@ -199,6 +245,17 @@ describe("isArgvSafe", () => {
   it("allows safe git usage", () => {
     expect(isArgvSafe(allowlistPolicy, "git", ["status"])).toBe(true);
     expect(isArgvSafe(allowlistPolicy, "git", ["log", "--oneline"])).toBe(true);
+  });
+
+  it("handles Windows interpreter names when checking dangerous flags", () => {
+    expect(
+      isArgvSafe(
+        allowlistPolicy,
+        "C:\\Python\\PYTHON.EXE",
+        ["-c", "print(1)"],
+        { PATHEXT: ".COM;.EXE;.BAT;.CMD" }
+      )
+    ).toBe(false);
   });
 
   it("returns true when no policy is configured (allows legitimate test invocations)", () => {

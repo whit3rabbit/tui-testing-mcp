@@ -278,7 +278,7 @@ export class TuiTestServer {
 
     server.tool(
       "launch_tui",
-      "Launch a terminal program inside a PTY and register it under `sessionId`. This is usually the first tool to call for requests like 'run the TUI', 'open the CLI', 'check whether this command starts', or 'test the layout'. Pick `mode: \"stream\"` for line-oriented CLI flows and `mode: \"buffer\"` for full-screen, redraw-heavy TUIs and layout checks. Prefer exact `command` plus `args`; use `target` when the workspace defines named launch targets. When `shell: true` the command is passed verbatim to `sh -c` and the caller is responsible for all quoting. `cols` and `rows` are bounded 10-500 to prevent buffer exhaustion. Relaunching with an existing `sessionId` closes the prior session first.",
+      "Launch a terminal program inside a PTY and register it under `sessionId`. This is usually the first tool to call for requests like 'run the TUI', 'open the CLI', 'check whether this command starts', or 'test the layout'. Pick `mode: \"stream\"` for line-oriented CLI flows and `mode: \"buffer\"` for full-screen, redraw-heavy TUIs and layout checks. Prefer exact `command` plus `args`; use `target` when the workspace defines named launch targets. When `shell: true` the command is passed verbatim to the resolved shell adapter (`sh -c`, `bash -lc`, `cmd /c`, and similar), so the caller is responsible for all quoting. `cols` and `rows` are bounded 10-500 to prevent buffer exhaustion. Relaunching with an existing `sessionId` closes the prior session first.",
       {
         command: z.string().optional(),
         args: z.array(z.string()).optional(),

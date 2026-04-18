@@ -107,7 +107,7 @@ guessing commands.
 | `allowedCommands` | `string[]` | Allowlist of permitted executables |
 | `deniedCommands` | `string[]` | Denylist of blocked executables |
 | `allowShell` | `boolean` | Permit shell-backed launches to resolve a shell binary |
-| `allowShellEval` | `boolean` | Permit `shell: true` to forward arbitrary command strings through shell `-c` |
+| `allowShellEval` | `boolean` | Permit `shell: true` to forward arbitrary command strings through the resolved shell adapter |
 | `envAllowlist` | `string[]` | Restrict the resolved child environment to specific keys |
 | `inheritEnv` | `boolean` | Inherit full parent `process.env` by default when true |
 | `artifactRedactions` | `string[]` | Extra regex patterns for artifact redaction |
@@ -116,7 +116,7 @@ guessing commands.
 Important behavior:
 
 - `allowShell` does not by itself allow inline `-c` evaluation
-- `allowShellEval` exists because shell `-c` bypasses command allowlists
+- `allowShellEval` exists because inline shell evaluation bypasses command allowlists
 - rules containing a path separator are matched as absolute-path rules
 - bare command rules are matched against the resolved executable basename
 - invalid `artifactRedactions` patterns fail validation

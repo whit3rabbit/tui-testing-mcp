@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ensureNodePtyHelperPermissions } from "./pty.js";
+import { ensureNodePtyHelperPermissions, getTerminalName } from "./pty.js";
 
 const tempDirs: string[] = [];
 
@@ -27,5 +27,15 @@ describe("ensureNodePtyHelperPermissions", () => {
 
     expect(repaired).toEqual([helperPath]);
     expect(mode & 0o111).not.toBe(0);
+  });
+});
+
+describe("getTerminalName", () => {
+  it("uses a conservative terminal id on Windows", () => {
+    expect(getTerminalName("win32")).toBe("xterm");
+  });
+
+  it("keeps the richer xterm profile on POSIX", () => {
+    expect(getTerminalName("darwin")).toBe("xterm-256color");
   });
 });

@@ -554,7 +554,7 @@ export class Session {
  * Default session manager instance.
  */
 export const defaultSessionManager = new SessionManager();
-export { mergeEnv } from "./session-isolation.js";
+export { buildChildEnv, mergeEnv } from "./session-isolation.js";
 
 function trimUtf8Prefix(value: string, targetBytes: number): { remaining: string; droppedBytes: number } {
   if (targetBytes <= 0 || value.length === 0) {

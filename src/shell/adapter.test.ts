@@ -75,7 +75,7 @@ describe("resolveShell", () => {
 
   it("rejects unsupported shell ids with the supported set in the message", () => {
     expect(() => resolveShell({ name: "powershell" }, "/bin/bash", undefined)).toThrow(
-      /Unsupported shell 'powershell'.*sh, bash, zsh, fish/
+      /Unsupported shell 'powershell'.*sh, bash, zsh, fish, cmd/
     );
   });
 });
@@ -105,5 +105,12 @@ describe("buildShellInvocation", () => {
     const resolution = resolveShell({ name: "bash" }, "/bin/bash", undefined);
     expect(() => buildShellInvocation("   ", resolution)).toThrow(/non-empty/);
     expect(() => buildShellInvocation("", resolution)).toThrow(/non-empty/);
+  });
+
+  it("builds cmd /c argv for Windows shell launches", () => {
+    const resolution = resolveShell({ name: "cmd" }, undefined, undefined);
+    const invocation = buildShellInvocation("echo hi", resolution);
+    expect(invocation.command).toBe("cmd.exe");
+    expect(invocation.args).toEqual(["/c", "echo hi"]);
   });
 });

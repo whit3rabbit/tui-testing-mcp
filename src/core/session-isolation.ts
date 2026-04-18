@@ -11,7 +11,7 @@ import { isPathWithin } from "../utils.js";
  * detection (TERM), temp-file handling (TMPDIR/TMP/TEMP), and home-path
  * resolution (HOME, USER). Anything outside this set is explicit opt-in.
  */
-const MINIMAL_ENV_KEYS: ReadonlyArray<string> = [
+const POSIX_MINIMAL_ENV_KEYS: ReadonlyArray<string> = [
   "PATH",
   "HOME",
   "USER",
@@ -20,6 +20,22 @@ const MINIMAL_ENV_KEYS: ReadonlyArray<string> = [
   "TERM",
   "LANG",
   "TMPDIR",
+  "TMP",
+  "TEMP",
+];
+const WINDOWS_MINIMAL_ENV_KEYS: ReadonlyArray<string> = [
+  "PATH",
+  "Path",
+  "HOME",
+  "USERPROFILE",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "USERNAME",
+  "ComSpec",
+  "SystemRoot",
+  "PATHEXT",
+  "TERM",
+  "LANG",
   "TMP",
   "TEMP",
 ];
@@ -120,6 +136,60 @@ function isBlockedVar(key: string): boolean {
   );
 }
 
+function isWindowsPlatform(platform: NodeJS.Platform): boolean {
+  return platform === "win32";
+}
+
+function getMinimalEnvKeys(platform: NodeJS.Platform): ReadonlyArray<string> {
+  return isWindowsPlatform(platform) ? WINDOWS_MINIMAL_ENV_KEYS : POSIX_MINIMAL_ENV_KEYS;
+}
+
+function matchesMinimalEnvKey(
+  platform: NodeJS.Platform,
+  key: string,
+  minimalKeys: ReadonlyArray<string>
+): boolean {
+  if (isWindowsPlatform(platform)) {
+    const folded = key.toUpperCase();
+    return minimalKeys.some((candidate) => candidate.toUpperCase() === folded);
+  }
+  return minimalKeys.includes(key);
+}
+
+function getPathValue(source: Record<string, string | undefined>): string | undefined {
+  return source.Path ?? source.PATH ?? source.path;
+}
+
+function deletePathKeys(env: Record<string, string>): void {
+  for (const key of Object.keys(env)) {
+    if (key.toUpperCase() === "PATH") {
+      delete env[key];
+    }
+  }
+}
+
+function getFallbackPath(
+  platform: NodeJS.Platform,
+  sourceEnv: Record<string, string | undefined>
+): string {
+  if (!isWindowsPlatform(platform)) {
+    return "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+  }
+
+  const systemRoot = sourceEnv.SystemRoot ?? process.env.SystemRoot ?? "C:\\Windows";
+  return [
+    path.win32.join(systemRoot, "System32"),
+    systemRoot,
+    path.win32.join(systemRoot, "System32", "Wbem"),
+  ].join(";");
+}
+
+function normalizePathEnv(env: Record<string, string>, platform: NodeJS.Platform): void {
+  const pathValue = getPathValue(env);
+  deletePathKeys(env);
+  env[isWindowsPlatform(platform) ? "Path" : "PATH"] = pathValue ?? getFallbackPath(platform, env);
+}
+
 /**
  * Build the env passed to a child spawn.
  *
@@ -135,34 +205,35 @@ function isBlockedVar(key: string): boolean {
  * want the old behavior must opt in explicitly via `security.inheritEnv`
  * or per-session `isolation.environment.inherit`.
  */
-export function mergeEnv(
+export function buildChildEnv(
+  sourceEnv: NodeJS.ProcessEnv,
   security: SecurityPolicyManager,
   overrides?: Record<string, string>,
-  environment?: SessionEnvironmentConfig
+  environment?: SessionEnvironmentConfig,
+  platform: NodeJS.Platform = process.platform
 ): Record<string, string> {
   const env: Record<string, string> = {};
   const inherit = environment?.inherit ?? security.policy.inheritEnv ?? false;
+  const minimalKeys = getMinimalEnvKeys(platform);
 
   if (inherit) {
     // Even with full inheritance enabled, drop known secret patterns as
     // defense-in-depth. This prevents accidental credential leakage even
     // when the caller explicitly opts into inheritance.
-    for (const [key, value] of Object.entries(process.env)) {
+    for (const [key, value] of Object.entries(sourceEnv)) {
       if (typeof value === "string" && !isBlockedVar(key)) {
         env[key] = value;
       }
     }
   } else {
-    for (const [key, value] of Object.entries(process.env)) {
+    for (const [key, value] of Object.entries(sourceEnv)) {
       if (typeof value !== "string") continue;
-      if (MINIMAL_ENV_KEYS.includes(key) || MINIMAL_ENV_KEY_PATTERNS.some((pat) => pat.test(key))) {
+      if (
+        matchesMinimalEnvKey(platform, key, minimalKeys) ||
+        MINIMAL_ENV_KEY_PATTERNS.some((pat) => pat.test(key))
+      ) {
         env[key] = value;
       }
-    }
-    // Spawn safety: node-pty requires a usable PATH to resolve `file` when
-    // the caller did not hand us an absolute path.
-    if (!env["PATH"]) {
-      env["PATH"] = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
     }
   }
 
@@ -170,12 +241,25 @@ export function mergeEnv(
     Object.assign(env, overrides);
   }
 
+  // Spawn safety: node-pty requires a usable PATH/Path to resolve `file`
+  // when the caller did not hand us an absolute path.
+  normalizePathEnv(env, platform);
+
   const shaped =
     environment?.allow && environment.allow.length > 0
       ? pickEnvKeys(env, environment.allow)
       : env;
 
+  normalizePathEnv(shaped, platform);
   return security.filterEnv(shaped);
+}
+
+export function mergeEnv(
+  security: SecurityPolicyManager,
+  overrides?: Record<string, string>,
+  environment?: SessionEnvironmentConfig
+): Record<string, string> {
+  return buildChildEnv(process.env, security, overrides, environment, process.platform);
 }
 
 export function mergeIsolation(

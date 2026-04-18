@@ -50,14 +50,18 @@ entries, when an active command policy is present.
 Two separate flags control shell behavior:
 
 1. `allowShell` — permits resolving a shell binary for shell-backed launches
-2. `allowShellEval` — permits `shell: true` to forward arbitrary command strings through `shell -c`
+2. `allowShellEval` — permits `shell: true` to forward arbitrary command strings through the resolved shell adapter (`-c`, `/c`, and similar)
 
 `allowShellEval` requires `allowShell` to also be true. This separation allows policy to permit a shell binary for adapter/tools that need it without granting universal command execution.
 
 ### Environment Shaping
 
-By default, only a minimal safe env allowlist is passed to child processes:
+By default, only a minimal safe env allowlist is passed to child processes.
+On Unix-like systems this includes:
 - `PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TERM`, `LANG`, `LC_*`, `TMPDIR`, `TMP`, `TEMP`
+
+On Windows this includes:
+- `Path`, `HOME`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `USERNAME`, `ComSpec`, `SystemRoot`, `PATHEXT`, `TERM`, `LANG`, `LC_*`, `TMP`, `TEMP`
 
 Full parent environment inheritance requires explicit opt-in via `security.inheritEnv: true` or `isolation.environment.inherit: true`.
 

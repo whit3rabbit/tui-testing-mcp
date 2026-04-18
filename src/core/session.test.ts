@@ -450,6 +450,28 @@ describe("SessionManager", () => {
     }
   });
 
+  it("honors explicit shellOptions for cmd", async () => {
+    const manager = new SessionManager();
+    const tempRoot = mkShellConfigRoot();
+
+    try {
+      await manager.launch({
+        sessionId: "shell-cmd",
+        command: "echo hi",
+        shell: true,
+        shellOptions: { name: "cmd", login: false },
+        cwd: tempRoot,
+        mode: "stream",
+      });
+
+      expect(spawnCalls).toHaveLength(1);
+      expect(spawnCalls[0]?.file).toBe("cmd.exe");
+      expect(spawnCalls[0]?.args).toEqual(["/c", "echo hi"]);
+    } finally {
+      await manager.closeAll();
+    }
+  });
+
   it("rejects unsupported shell selections before spawning", async () => {
     const manager = new SessionManager();
     const tempRoot = mkShellConfigRoot();

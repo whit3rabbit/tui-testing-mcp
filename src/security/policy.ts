@@ -28,6 +28,7 @@ const RISKY_COMMANDS = new Set([
   "deno",
   "bash",
   "sh",
+  "dash",
   "zsh",
   "fish",
   "powershell",
@@ -96,6 +97,7 @@ const DANGEROUS_ARGV_PATTERNS: Record<string, RegExp[]> = {
   // Shell invocation is inherently dangerous
   bash: [/^-c(?:.+)?$/, /^--posix$/],
   sh: [/^-c(?:.+)?$/],
+  dash: [/^-c(?:.+)?$/],
   zsh: [/^-c(?:.+)?$/],
   powershell: [/^-c$/, /^-Command$/, /^-File$/],
   pwsh: [/^-c$/, /^-Command$/, /^-File$/],
@@ -120,6 +122,7 @@ const DANGEROUS_ENV_PATTERNS: Record<string, RegExp[]> = {
   python3: [/^PYTHONSTARTUP$/i, /^PYTHONPATH$/i],
   bash: [/^BASH_ENV$/i, /^ENV$/i],
   sh: [/^ENV$/i],
+  dash: [/^ENV$/i],
   zsh: [/^ZDOTDIR$/i, /^ENV$/i],
   powershell: [/^PSMODULEPATH$/i],
   pwsh: [/^PSMODULEPATH$/i],
@@ -127,6 +130,8 @@ const DANGEROUS_ENV_PATTERNS: Record<string, RegExp[]> = {
   perl: [/^PERL5OPT$/i, /^PERL5LIB$/i],
   git: [/^GIT_CONFIG_(?:COUNT|KEY_\\d+|VALUE_\\d+|SYSTEM|GLOBAL)$/i, /^GIT_EXEC_PATH$/i],
 };
+
+const WINDOWS_EXECUTABLE_EXTENSIONS = new Set([".exe", ".cmd", ".bat", ".com"]);
 
 export interface ArtifactRetentionPolicy {
   /** Delete bundles older than this many hours. */
@@ -215,6 +220,36 @@ export function freezePolicy(policy: SecurityPolicy): SecurityContext {
   return Object.freeze(copy);
 }
 
+function isWindowsCommandPath(value: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(value) || /^\\\\/.test(value) || value.includes("\\");
+}
+
+function usesWindowsCommandResolution(command: string, env?: Record<string, string>): boolean {
+  return (
+    process.platform === "win32" ||
+    isWindowsCommandPath(command) ||
+    Boolean(env?.PATHEXT) ||
+    Boolean(env?.Path)
+  );
+}
+
+function normalizeResolvedPath(value: string, windows: boolean): string {
+  return windows
+    ? path.win32.normalize(value).toLowerCase()
+    : value;
+}
+
+function normalizeCommandName(value: string, windows: boolean): string {
+  const base = windows ? path.win32.basename(value) : path.basename(value);
+  const ext = windows ? path.win32.extname(base) : path.extname(base);
+  const withoutExt =
+    windows && WINDOWS_EXECUTABLE_EXTENSIONS.has(ext.toLowerCase())
+      ? base.slice(0, -ext.length)
+      : base;
+  const versionCollapsed = withoutExt.replace(/[\d.]+$/, "");
+  return windows ? versionCollapsed.toLowerCase() : versionCollapsed;
+}
+
 /**
  * Match a single rule (allow or deny entry) against a resolved command.
  *
@@ -228,14 +263,16 @@ export function freezePolicy(policy: SecurityPolicy): SecurityContext {
  * interpreter through symlinks.
  */
 export function isCommandAllowed(policy: SecurityPolicy, command: string, env?: Record<string, string>): boolean {
+  const windows = usesWindowsCommandResolution(command, env);
   const resolved = resolveCommandForMatching(command, env);
-  const basename = path.basename(resolved);
+  const normalizedResolved = normalizeResolvedPath(resolved, windows);
+  const basename = normalizeCommandName(resolved, windows);
 
   const matches = (entry: string): boolean => {
     if (entry.includes("/") || entry.includes("\\")) {
-      return resolveCommandForMatching(entry, env) === resolved;
+      return normalizeResolvedPath(resolveCommandForMatching(entry, env), windows) === normalizedResolved;
     }
-    return entry === basename;
+    return normalizeCommandName(entry, windows) === basename;
   };
 
   if (policy.deniedCommands?.some(matches)) return false;
@@ -248,12 +285,13 @@ export function isCommandAllowed(policy: SecurityPolicy, command: string, env?: 
 }
 
 function resolveCommandForMatching(command: string, env?: Record<string, string>): string {
+  const windows = usesWindowsCommandResolution(command, env);
   if (!command.includes("/") && !command.includes("\\")) {
-    const onPath = findOnPath(command, env);
+    const onPath = findOnPath(command, env, windows);
     return onPath ?? command;
   }
 
-  const absolute = path.resolve(command);
+  const absolute = windows ? path.win32.resolve(command) : path.resolve(command);
   try {
     return fs.realpathSync(absolute);
   } catch {
@@ -261,18 +299,45 @@ function resolveCommandForMatching(command: string, env?: Record<string, string>
   }
 }
 
-function findOnPath(name: string, env?: Record<string, string>): string | null {
+export function commandPathCandidates(
+  name: string,
+  env?: Record<string, string>,
+  platform: NodeJS.Platform = process.platform
+): string[] {
+  if (platform !== "win32") {
+    return [name];
+  }
+
+  const ext = path.win32.extname(name);
+  if (WINDOWS_EXECUTABLE_EXTENSIONS.has(ext.toLowerCase())) {
+    return [name];
+  }
+
+  const pathext = env?.PATHEXT ?? process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD";
+  const extensions = pathext
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+
+  return [name, ...extensions.map((entry) => `${name}${entry}`)];
+}
+
+function findOnPath(name: string, env: Record<string, string> | undefined, windows: boolean): string | null {
   const pathVar = env?.PATH ?? env?.Path ?? process.env.PATH ?? "";
   if (!pathVar) return null;
-  const separator = process.platform === "win32" ? ";" : ":";
+  const separator = windows ? ";" : ":";
+  const candidates = commandPathCandidates(name, env, windows ? "win32" : process.platform);
   for (const dir of pathVar.split(separator)) {
     if (!dir) continue;
-    const candidate = path.join(dir, name);
-    try {
-      const real = fs.realpathSync(candidate);
-      if (fs.statSync(real).isFile()) return real;
-    } catch {
-      // candidate not present or not a real file - try the next PATH entry
+
+    for (const candidateName of candidates) {
+      const candidate = windows ? path.win32.join(dir, candidateName) : path.join(dir, candidateName);
+      try {
+        const real = fs.realpathSync(candidate);
+        if (fs.statSync(real).isFile()) return real;
+      } catch {
+        // candidate not present or not a real file - try the next PATH entry
+      }
     }
   }
   return null;
@@ -298,38 +363,44 @@ export function isArgvSafe(policy: SecurityPolicy, command: string, argv: string
     return true;
   }
 
+  // Check rules keyed by both the caller-supplied command basename and the
+  // realpath-resolved basename. Keying only on the resolved name makes the
+  // check platform-dependent: `/bin/sh` symlinks to `dash` on Debian/Ubuntu
+  // and `bash` on macOS, so a rule keyed only on the realpath would silently
+  // miss `sh -c` on Linux. Including the input basename closes that gap for
+  // future symlinks to shell-like binaries we haven't named yet.
+  const windows = usesWindowsCommandResolution(command, env);
   const resolved = resolveCommandForMatching(command, env);
-  const basename = path.basename(resolved).toLowerCase();
+  const resolvedName = normalizeCommandName(resolved, windows);
+  const inputName = normalizeCommandName(command, windows);
 
-  // Strip version suffixes (python3.13 -> python, nodev20 -> node) for matching
-  const baseName = basename.replace(/[\d.]+$/, "");
+  const lookupNames = new Set<string>();
+  if (RISKY_COMMANDS.has(resolvedName)) lookupNames.add(resolvedName);
+  if (RISKY_COMMANDS.has(inputName)) lookupNames.add(inputName);
 
-  // Only validate argv for known risky commands
-  if (!RISKY_COMMANDS.has(basename) && !RISKY_COMMANDS.has(baseName)) {
+  if (lookupNames.size === 0) {
     return true;
   }
 
-  // Use the baseName for pattern lookup if available, otherwise use full basename
-  const lookupName = RISKY_COMMANDS.has(baseName) ? baseName : basename;
-  const patterns = DANGEROUS_ARGV_PATTERNS[lookupName];
-  const envPatterns = DANGEROUS_ENV_PATTERNS[lookupName] ?? [];
-
-  // Check each dangerous pattern against the argv
-  if (patterns && patterns.length > 0) {
-    for (const arg of argv) {
-      for (const pattern of patterns) {
-        if (pattern.test(arg)) {
-          return false;
+  for (const name of lookupNames) {
+    const patterns = DANGEROUS_ARGV_PATTERNS[name];
+    if (patterns && patterns.length > 0) {
+      for (const arg of argv) {
+        for (const pattern of patterns) {
+          if (pattern.test(arg)) {
+            return false;
+          }
         }
       }
     }
-  }
 
-  if (env && envPatterns.length > 0) {
-    for (const key of Object.keys(env)) {
-      for (const pattern of envPatterns) {
-        if (pattern.test(key)) {
-          return false;
+    const envPatterns = DANGEROUS_ENV_PATTERNS[name] ?? [];
+    if (env && envPatterns.length > 0) {
+      for (const key of Object.keys(env)) {
+        for (const pattern of envPatterns) {
+          if (pattern.test(key)) {
+            return false;
+          }
         }
       }
     }

@@ -109,6 +109,10 @@ npm run test:mcp
 black-box stdio process. Use these commands in local workflows and CI when you
 want MCP protocol failures reported separately from PTY behavior failures.
 
+The CI matrix runs these validation lanes on `macos-latest`, `ubuntu-latest`,
+and `windows-latest`. The Windows lane is the release gate for the current
+experimental native Windows support slice.
+
 ## Inspector smoke testing
 
 Build first, then launch the server under the official Inspector:

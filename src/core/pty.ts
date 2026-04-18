@@ -27,6 +27,10 @@ export interface PtyState {
 const require = createRequire(import.meta.url);
 let helperPermissionsChecked = false;
 
+export function getTerminalName(platform: NodeJS.Platform = process.platform): string {
+  return platform === "win32" ? "xterm" : "xterm-256color";
+}
+
 /**
  * Wraps node-pty to provide PTY process handling.
  * Each PtyInstance manages a single pseudo-terminal process.
@@ -41,7 +45,7 @@ export class PtyInstance extends events.EventEmitter {
     ensureNodePtyHelperPermissions();
 
     this.ptyProcess = pty.spawn(options.file, options.args ?? [], {
-      name: "xterm-256color",
+      name: getTerminalName(),
       cols: options.cols,
       rows: options.rows,
       cwd: options.cwd ?? process.cwd(),

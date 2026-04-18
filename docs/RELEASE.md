@@ -6,7 +6,7 @@ This is the human-facing gate for publishing `tui-testing-mcp` to npm. It comple
 
 Keep release messaging aligned with the project scope:
 
-> stdio MCP server for terminal and TUI testing, Unix-focused (macOS and Linux), native Windows unsupported, guarded execution (not sandboxing), and official MCP conformance remains advisory.
+> stdio MCP server for terminal and TUI testing, supported on macOS and Linux and experimentally on native Windows (cmd-first), guarded execution (not sandboxing), and official MCP conformance remains advisory.
 
 If a release changes any of those five properties, the README, `docs/SECURITY.md`, `docs/TESTS.md`, and `docs/windows-support.md` must be updated together.
 
