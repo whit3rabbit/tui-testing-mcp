@@ -69,7 +69,7 @@ export const securitySchema = z.object({
   inheritEnv: z.boolean().optional(),
   /**
    * Extra regex strings (global flag implied) appended to the built-in
-   * artifact redactors. Invalid patterns are ignored.
+   * artifact redactors. Invalid patterns fail validation.
    */
   artifactRedactions: z.array(z.string()).optional(),
   artifactRetention: z

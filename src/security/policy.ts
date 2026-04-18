@@ -166,7 +166,7 @@ export interface SecurityPolicy {
   /**
    * Extra regex strings appended to the built-in artifact redactors.
    * Patterns are compiled with the global flag before being applied.
-   * Invalid patterns are silently skipped.
+   * Invalid patterns fail validation and reject the policy.
    */
   artifactRedactions?: string[];
   artifactRetention?: ArtifactRetentionPolicy;

@@ -8,6 +8,10 @@ Scope in one sentence: stdio MCP server for terminal and TUI testing, supported 
 
 This project is a TypeScript and Node.js port of the original Python MCP TUI test server, expanded toward language-agnostic target execution for Rust, Go, Python, Node, and raw binaries. It keeps the same PTY-plus-buffer testing model, but the product here is an MCP server, not a standalone test framework.
 
+For python version see:
+
+* https://github.com/GeorgePearse/mcp-tui-test
+
 ## Why use it
 
 Use this when you want an MCP client or coding agent to:
@@ -30,57 +34,12 @@ Good fits:
 
 See [Non-goals](#non-goals) for what this is explicitly not trying to be.
 
-## Current shape
-
-Today the project includes:
-
-- split runtime across `core/`, `server/`, `runners/`, `config/`, and `security/`
-- exact `command` plus `args` launching
-- explicit `shell: true` support for raw shell commands
-- target-based launch through runner adapters and JSON config
-- stream-mode capture and assertions
-- buffer-mode screen inspection and coordinate checks
-- screen-settling waits for redraw-heavy TUIs
-- rendered `screen.html` artifacts for captured buffer sessions
-- workspace and command security policy
-- unit and integration coverage around core behavior
-
-## Non-goals
-
-These are intentionally out of scope for the first release. If you need any of them, this is not the tool:
-
-- a general-purpose end-user terminal recorder
-- a standalone assertion library independent of MCP
-- a browser-style visual snapshot system
-- a full replacement for every native language test runner
-
 ## Requirements
 
 - Node.js 20.11 or newer
 - macOS, Linux, or native Windows 10 1809+ with ConPTY
 - `node-pty` must build successfully for your local Node version
-
-## Platform Support
-
-| Area      | Status             | Notes                                                |
-| --------- | ------------------ | ---------------------------------------------------- |
-| macOS     | Supported          | Covered by CI (`macos-latest`, Node 22).             |
-| Linux     | Supported          | Covered by CI (`ubuntu-latest`, Node 22).            |
-| Windows   | Experimental       | Covered by CI (`windows-latest`, Node 22). Native Windows only, direct `command` + `args` preferred, `shell: true` validated for `cmd`. |
-| WSL2      | Not supported yet  | Not evaluated or documented as a supported environment. |
-| Transport | stdio only         | No HTTP or SSE transport. See [docs/TESTS.md](docs/TESTS.md). |
-
-Experimental Windows support is intentionally narrow: native Windows only, `cmd` is the only supported shell-backed launch path, and direct `command` plus `args` remains the preferred cross-platform launch style. See [docs/windows-support.md](docs/windows-support.md) for the current support contract and limitations.
-
-Official MCP conformance is advisory for this project. The required validation stack is the three lanes documented in [docs/TESTS.md](docs/TESTS.md): raw stdio, SDK interoperability, and PTY behavior.
-
 ## Quick start
-
-```bash
-npm install
-npm run build
-npm start
-```
 
 The server speaks MCP over stdio. For one-off MCP client setup, the shortest form is:
 
@@ -292,6 +251,21 @@ Helpful details to include when you know them:
 - the success condition, for example "the command exits 0" or "the status bar shows Connected"
 
 The agent should map requests like "test the TUI layout", "run the app and check if the command works", or "verify the menu opens after pressing down arrow" onto the MCP tools below. A separate skill can still help with opinionated workflows, but the MCP should be usable out of the box without one.
+
+
+## Platform Support
+
+| Area      | Status             | Notes                                                |
+| --------- | ------------------ | ---------------------------------------------------- |
+| macOS     | Supported          | Covered by CI (`macos-latest`, Node 22).             |
+| Linux     | Supported          | Covered by CI (`ubuntu-latest`, Node 22).            |
+| Windows   | Experimental       | Covered by CI (`windows-latest`, Node 20). Native Windows only, direct `command` + `args` preferred, `shell: true` validated for `cmd`. |
+| WSL2      | Not supported yet  | Not evaluated or documented as a supported environment. |
+| Transport | stdio only         | No HTTP or SSE transport. See [docs/TESTS.md](docs/TESTS.md). |
+
+Experimental Windows support is intentionally narrow: native Windows only, `cmd` is the only supported shell-backed launch path, and direct `command` plus `args` remains the preferred cross-platform launch style. See [docs/windows-support.md](docs/windows-support.md) for the current support contract and limitations.
+
+Official MCP conformance is advisory for this project. The required validation stack is the three lanes documented in [docs/TESTS.md](docs/TESTS.md): raw stdio, SDK interoperability, and PTY behavior.
 
 ## Testing and validation
 
@@ -538,7 +512,7 @@ For the full security model and production recommendations, see [docs/SECURITY.m
 
 ## Limitations
 
-* Unix-like systems only for now
+* native Windows support is still experimental and cmd-first, WSL2 is not a supported target
 * no mouse input
 * `buffer` mode uses more memory than `stream`
 * shell mode is intentionally restricted

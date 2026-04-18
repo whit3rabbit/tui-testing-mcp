@@ -40,7 +40,7 @@
         "artifactRedactions": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Regex patterns (global flag implied) appended to the built-in artifact redactors. Invalid patterns are ignored."
+          "description": "Regex patterns (global flag implied) appended to the built-in artifact redactors. Invalid patterns fail validation."
         },
         "artifactRetention": {
           "type": "object",

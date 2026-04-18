@@ -71,7 +71,8 @@ Transcripts and screen captures are scanned for obvious secret patterns:
 - Token shapes: `sk-*`, `AKIA*`, `Bearer <…>`, `ghp_*`, `gho_*`
 - Key-value secrets: `password=…`, `secret=…`, `token=…`, `api_key=…`
 
-Custom patterns can be added via `security.artifactRedactions`.
+Custom patterns can be added via `security.artifactRedactions`. Invalid
+patterns fail validation and reject the configuration instead of being ignored.
 
 Trace artifacts keep a bounded rolling history. Input trace events store
 metadata such as length and control-character presence, not the raw typed
