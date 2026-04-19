@@ -395,7 +395,7 @@ launch_tui(
 
 | Tool | What it does | Notes |
 | ---- | ------------ | ----- |
-| `send_keys(keys, delay?)` | Send literal input to the PTY | Supports escapes like `\n`, Ctrl syntax like `^c`, and named keys like `up`, `down`, `left`, `right` |
+| `send_keys(keys, delay?)` | Send literal input to the PTY | Supports escapes like `\n`/`\r`, Ctrl syntax like `^c`, and named keys like `enter`, `return`, `up`, `down`, `left`, `right`. Named `enter`/`return` send CR (`0x0D`) to match real terminals (equivalent to `send_ctrl m`); use literal `\n` when you specifically need LF (`0x0A`) |
 | `send_ctrl(key)` | Send a single Ctrl combo | Pass lowercase letters like `c`, `d`, `z` |
 | `capture_screen(includeAnsi?, useBuffer?)` | Return current output | `stream` returns transcript, `buffer` returns current emulated screen |
 | `expect_text(pattern, timeout?, patternMode?)` | Wait until text or regex appears | Timeout errors include a useful excerpt, regex mode rejects unsafe repeated-group shapes like `(a+)+` |

@@ -1,6 +1,6 @@
 {
   "name": "tui-testing-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MCP server for testing terminal UIs and interactive CLIs across Rust, Go, Python, Node, and raw binaries",
   "type": "module",
   "private": false,

@@ -7,7 +7,11 @@
  * Special key escape sequences.
  */
 export const SpecialKeys = {
-  enter: "\n",
+  // Enter must be CR (0x0D), not LF (0x0A). Raw-mode TUIs (ratatui/crossterm, bubbletea,
+  // textual) decode 0x0A as Ctrl+J because that byte literally *is* Ctrl+J, so sending
+  // LF makes an `Enter` binding arrive with a CONTROL modifier and not match. Cooked-mode
+  // callers are unaffected because the PTY line discipline rewrites CR -> LF via ICRNL.
+  enter: "\r",
   tab: "\t",
   escape: "\x1b",
   backspace: "\x7f",
@@ -56,13 +60,12 @@ export function ctrlKey(key: string): string {
 /**
  * Parse a key string and expand special sequences.
  * Supports:
- * - \n -> enter
+ * - \r -> CR (0x0D), the canonical Enter byte
+ * - \n -> LF (0x0A), distinct from Enter in raw mode
  * - \t -> tab
- * - \x1b -> escape
- * - \r -> enter
+ * - \x1b or \e -> escape
  * - \b -> backspace
- * - \e -> escape
- * - Arrow keys via names: up, down, left, right
+ * - Named keys: enter/return, tab, esc/escape, up/down/left/right, etc.
  */
 export function parseKeys(input: string): string {
   const namedKey = parseNamedKey(input);
@@ -79,8 +82,11 @@ export function parseKeys(input: string): string {
       const next = input[i + 1];
       switch (next) {
         case "n":
+          result += "\n";
+          i++;
+          break;
         case "r":
-          result += SpecialKeys.enter;
+          result += "\r";
           i++;
           break;
         case "t":
@@ -137,6 +143,8 @@ function parseNamedKey(input: string): string | undefined {
     // Navigation and editing
     enter: SpecialKeys.enter,
     "<enter>": SpecialKeys.enter,
+    return: SpecialKeys.enter,
+    "<return>": SpecialKeys.enter,
     tab: SpecialKeys.tab,
     "<tab>": SpecialKeys.tab,
     esc: SpecialKeys.escape,
