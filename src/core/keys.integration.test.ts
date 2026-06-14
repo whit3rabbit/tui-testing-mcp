@@ -100,7 +100,10 @@ describe("key byte encoding (real PTY)", () => {
           process.platform === "win32"
             ? ["BYTE:1B", "BYTE:5B", "BYTE:5B", "BYTE:41"]
             : ["BYTE:1B", "BYTE:4F", "BYTE:50"]],
-        ["f5", parseKeys("f5"), ["BYTE:1B", "BYTE:5B", "BYTE:31", "BYTE:35", "BYTE:7E"]],
+        ["f5", parseKeys("f5"),
+          process.platform === "win32"
+            ? ["BYTE:1B", "BYTE:5B", "BYTE:5B", "BYTE:45"]
+            : ["BYTE:1B", "BYTE:5B", "BYTE:31", "BYTE:35", "BYTE:7E"]],
         ["page up", parseKeys("pageup"), ["BYTE:1B", "BYTE:5B", "BYTE:35", "BYTE:7E"]],
         // Ctrl via ^ syntax (raw-mode child sees 0x03, no SIGINT because ISIG is off).
         ["^c -> Ctrl+C byte", parseKeys("^c"), ["BYTE:03"]],

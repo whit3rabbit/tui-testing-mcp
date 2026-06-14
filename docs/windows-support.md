@@ -86,9 +86,11 @@ These environments remain unsupported in this milestone:
   accounts for the translation by expecting `BYTE:08` on Windows. TUI
   applications typically handle both bytes.
 - **ConPTY rewrites some function-key escape sequences.** On Windows, ConPTY
-  rewrites the SS3 F1 sequence (`ESC O P`) to `ESC [ [ A` before it reaches a
-  raw-mode child. The project's `parseKeys("f1")` still emits `ESC O P`; the
-  live PTY integration test asserts the translated bytes on Windows.
+  rewrites function-key sequences before they reach a raw-mode child. Observed
+  CI translations include F1 from `ESC O P` to `ESC [ [ A` and F5 from
+  `ESC [ 15 ~` to `ESC [ [ E`. The project's parser still emits the documented
+  xterm-style sequences; the live PTY integration test asserts the translated
+  bytes on Windows.
 - **AttachConsole failed is non-fatal noise in CI.** The `conpty_console_list_agent.js`
   helper spawned by `node-pty` logs `AttachConsole failed` on GitHub Actions
   Windows runners, which have no console to attach to. This error propagates
