@@ -19,12 +19,11 @@ jobs:
             node: 22
           - os: ubuntu-latest
             node: 22
-          # windows-latest upgraded to Node 22 as of 2026-06-14.
-          # The historical ncrypto::CSPRNG assertion in Node 22 + node-pty + ConPTY
-          # was resolved in a later Node 22 patch. Revert to node: 20 if the crash
-          # re-appears and update docs/windows-support.md.
+          # Keep Windows on Node 20 until node-pty + ConPTY is verified stable
+          # on Node 22. Node 22 can still assert inside ncrypto::CSPRNG when the
+          # PTY child is a Node.js process.
           - os: windows-latest
-            node: 22
+            node: 20
 
     steps:
       - name: Check out repository

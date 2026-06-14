@@ -1,6 +1,6 @@
 # Windows Support
 
-Date: 2026-04-18
+Date: 2026-06-14
 
 ## Status
 
@@ -46,12 +46,12 @@ These environments remain unsupported in this milestone:
 
 ## Known upstream issues
 
-- **Node 22 + node-pty ConPTY crash (historical).** On `windows-latest` with
+- **Node 22 + node-pty ConPTY crash.** On `windows-latest` with
   Node 22 and `node-pty@^1.1.0`, spawning a Node.js subprocess through the PTY
-  could trigger an internal `ncrypto::CSPRNG` assertion inside the child's
-  startup, killing the PTY before any output reaches the buffer. As of 2026-06-14
-  the Windows CI job runs Node 22 (see `.github/workflows/ci.yml`). Revert to
-  `node: 20` if the assertion re-appears and update this note.
+  can trigger an internal `ncrypto::CSPRNG` assertion inside the child's
+  startup, killing the PTY before any output reaches the buffer. The Windows CI
+  job is pinned to Node 20 until the Node 22 + node-pty + ConPTY combination is
+  verified stable (see `.github/workflows/ci.yml`).
 - **POSIX permission bits are not enforced by NTFS.** Tests that assert
   `stat.mode & 0o777 === 0o600` on persisted artifacts run only on Unix hosts;
   the equivalent check is skipped on Windows because `fs.writeFileSync` cannot
