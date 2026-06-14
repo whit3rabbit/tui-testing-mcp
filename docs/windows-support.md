@@ -46,12 +46,12 @@ These environments remain unsupported in this milestone:
 
 ## Known upstream issues
 
-- **Node 22 + node-pty ConPTY crash.** On `windows-latest` with Node 22 and
-  `node-pty@^1.1.0`, spawning a Node.js subprocess through the PTY can trigger
-  an internal `ncrypto::CSPRNG` assertion inside the child's startup, killing
-  the PTY before any output reaches the buffer. The Windows CI job is pinned
-  to Node 20 (see `.github/workflows/ci.yml`) until the upstream interaction is
-  resolved. macOS and Linux continue to run Node 22.
+- **Node 22 + node-pty ConPTY crash (historical).** On `windows-latest` with
+  Node 22 and `node-pty@^1.1.0`, spawning a Node.js subprocess through the PTY
+  could trigger an internal `ncrypto::CSPRNG` assertion inside the child's
+  startup, killing the PTY before any output reaches the buffer. As of 2026-06-14
+  the Windows CI job runs Node 22 (see `.github/workflows/ci.yml`). Revert to
+  `node: 20` if the assertion re-appears and update this note.
 - **POSIX permission bits are not enforced by NTFS.** Tests that assert
   `stat.mode & 0o777 === 0o600` on persisted artifacts run only on Unix hosts;
   the equivalent check is skipped on Windows because `fs.writeFileSync` cannot
@@ -79,6 +79,17 @@ These environments remain unsupported in this milestone:
   directories on close and retains them only when requested*. That test is
   skipped on Windows; the sibling `cleans isolated working directories after
   unexpected process exit` test still runs.
+- **ConPTY translates backspace DEL to BS.** On Windows, ConPTY translates the
+  DEL byte (`0x7F`, the Unix-standard backspace) to BS (`0x08`) when the byte
+  passes through the PTY. The project's `parseKeys("backspace")` still produces
+  `\x7F` (the correct Unix byte), but `src/core/keys.integration.test.ts`
+  accounts for the translation by expecting `BYTE:08` on Windows. TUI
+  applications typically handle both bytes.
+- **AttachConsole failed is non-fatal noise in CI.** The `conpty_console_list_agent.js`
+  helper spawned by `node-pty` logs `AttachConsole failed` on GitHub Actions
+  Windows runners, which have no console to attach to. This error propagates
+  to stderr but does not affect test outcomes or PTY functionality. It is
+  considered harmless noise.
 
 ## Validation
 

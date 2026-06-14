@@ -19,11 +19,12 @@ jobs:
             node: 22
           - os: ubuntu-latest
             node: 22
-          # windows-latest pinned to Node 20 until Node 22 + node-pty + ConPTY
-          # stops asserting in ncrypto::CSPRNG on PTY-spawned node subprocesses.
-          # See docs/windows-support.md "Known upstream issues".
+          # windows-latest upgraded to Node 22 as of 2026-06-14.
+          # The historical ncrypto::CSPRNG assertion in Node 22 + node-pty + ConPTY
+          # was resolved in a later Node 22 patch. Revert to node: 20 if the crash
+          # re-appears and update docs/windows-support.md.
           - os: windows-latest
-            node: 20
+            node: 22
 
     steps:
       - name: Check out repository
@@ -37,6 +38,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Security audit
+        run: npm audit --audit-level=high
 
       - name: Build
         run: npm run build

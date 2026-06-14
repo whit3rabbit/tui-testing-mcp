@@ -90,7 +90,8 @@ describe("key byte encoding (real PTY)", () => {
         // Single-byte named keys.
         ["tab", parseKeys("tab"), ["BYTE:09"]],
         ["escape", parseKeys("escape"), ["BYTE:1B"]],
-        ["backspace", parseKeys("backspace"), ["BYTE:7F"]],
+        ["backspace", parseKeys("backspace"),
+          process.platform === "win32" ? ["BYTE:08"] : ["BYTE:7F"]],
         // Multi-byte escape sequences survive the PTY intact.
         ["arrow up", parseKeys("up"), ["BYTE:1B", "BYTE:5B", "BYTE:41"]],
         ["arrow down", parseKeys("down"), ["BYTE:1B", "BYTE:5B", "BYTE:42"]],
