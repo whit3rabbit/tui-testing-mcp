@@ -92,10 +92,14 @@ describe("key byte encoding (real PTY)", () => {
         ["escape", parseKeys("escape"), ["BYTE:1B"]],
         ["backspace", parseKeys("backspace"),
           process.platform === "win32" ? ["BYTE:08"] : ["BYTE:7F"]],
-        // Multi-byte escape sequences survive the PTY intact.
+        // Multi-byte escape sequences survive the PTY intact, except for
+        // documented ConPTY key translation on Windows.
         ["arrow up", parseKeys("up"), ["BYTE:1B", "BYTE:5B", "BYTE:41"]],
         ["arrow down", parseKeys("down"), ["BYTE:1B", "BYTE:5B", "BYTE:42"]],
-        ["f1", parseKeys("f1"), ["BYTE:1B", "BYTE:4F", "BYTE:50"]],
+        ["f1", parseKeys("f1"),
+          process.platform === "win32"
+            ? ["BYTE:1B", "BYTE:5B", "BYTE:5B", "BYTE:41"]
+            : ["BYTE:1B", "BYTE:4F", "BYTE:50"]],
         ["f5", parseKeys("f5"), ["BYTE:1B", "BYTE:5B", "BYTE:31", "BYTE:35", "BYTE:7E"]],
         ["page up", parseKeys("pageup"), ["BYTE:1B", "BYTE:5B", "BYTE:35", "BYTE:7E"]],
         // Ctrl via ^ syntax (raw-mode child sees 0x03, no SIGINT because ISIG is off).
