@@ -1,6 +1,6 @@
 {
   "name": "tui-testing-mcp",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "MCP server for testing terminal UIs and interactive CLIs across Rust, Go, Python, Node, and raw binaries",
   "type": "module",
   "private": false,
@@ -67,18 +67,18 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@xterm/headless": "^6.0.0",
     "node-pty": "^1.1.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.6.0",
-    "eslint": "^10.2.1",
-    "globals": "^17.5.0",
+    "@types/node": "^25.9.3",
+    "eslint": "^10.5.0",
+    "globals": "^17.6.0",
     "rimraf": "^6.1.3",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.58.2",
-    "vitest": "^4.1.4"
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^4.1.9"
   },
   "publishConfig": {
     "access": "public"
